@@ -22,7 +22,8 @@ def sample_image(data_dir):
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    agent = DDPG(device)
+    agent = DDPG()
+    agent.set_device(device)
     env = DiffBezierSharpieEnv()
 
     for episode_idx in range(args.num_warmup_episodes):
