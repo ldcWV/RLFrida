@@ -2,7 +2,7 @@ class DDPG:
     def __init__(self, device):
         raise NotImplementedError
 
-    def observe(self, obs, action, reward, next_obs, done):
+    def add_to_replay_buffer(self, obs, action, reward, next_obs, done):
         '''Store the transition into the replay buffer'''
         raise NotImplementedError
 

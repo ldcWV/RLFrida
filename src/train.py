@@ -44,14 +44,14 @@ def main(args):
         hindsight_goal = env.observe()
 
         for canvas, action, reward, next_canvas, done in traj:
-            agent.observe(
+            agent.add_to_replay_buffer(
                 torch.cat([canvas, goal], dim=2),
                 action,
                 reward,
                 torch.cat([next_canvas, goal], dim=2),
                 done
             )
-            agent.observe(
+            agent.add_to_replay_buffer(
                 torch.cat([canvas, hindsight_goal], dim=2),
                 action,
                 env.calc_reward(canvas, next_canvas, hindsight_goal),
