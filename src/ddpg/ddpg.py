@@ -1,9 +1,31 @@
+from constants import CANVAS_SIZE
 from src.ddpg.replay_buffer import ReplayBuffer
+from src.ddpg.actor import ResNet
+from src.ddpg.critic import ResNet_wobn
+from src.ddpg.utils import hard_update, soft_update
 import torch
 
 class DDPG:
-    def __init__(self):
+    def __init__(self, env):
         self.replay_buffer = ReplayBuffer(50000)
+
+        self.env = env
+
+        self.coordconv = torch.zeros((1, 2, CANVAS_SIZE, CANVAS_SIZE))
+        for i in range(CANVAS_SIZE):
+            for j in range(CANVAS_SIZE):
+                self.coordconv[0, 0, i, j] = i / CANVAS_SIZE
+                self.coordconv[0, 1, i, j] = j / CANVAS_SIZE
+
+        self.actor_net = ResNet(9, 18, self.env.action_space) # target, canvas, stepnum, coordconv 3 + 3 + 1 + 2
+        self.actor_target_net = ResNet(9, 18, self.env.action_space)
+        self.critic_net = ResNet_wobn(9, 18, 1)
+        self.critic_target_net = ResNet_wobn(9, 18, 1)
+
+        self.device = 'cpu'
+
+        hard_update(self.actor_net, self.actor_target_net)
+        hard_update(self.critic_net, self.critic_target_net)
 
     def add_to_replay_buffer(self, obs, action, reward, next_obs, done, goal):
         '''Store the transition into the replay buffer'''
@@ -24,5 +46,9 @@ class DDPG:
         '''Updates policy and value network using a batch from the replay buffer'''
         raise NotImplementedError
 
-    def set_device(self):
-        raise NotImplementedError
+    def set_device(self, device):
+        self.device = device
+        self.actor_net.to(device)
+        self.actor_target_net.to(device)
+        self.critic_net.to(device)
+        self.critic_target_net.to(device)

@@ -31,15 +31,16 @@ def main(args):
         env.reset()
 
         traj = []
-        while True:
-            obs = env.get_observation()
-            action = agent.select_action(obs, goal)
-            next_obs, done = env.step(action)
+        with torch.no_grad():
+            while True:
+                obs = env.get_observation()
+                action = agent.select_action(obs, goal)
+                next_obs, done = env.step(action)
 
-            traj.append((obs, action, next_obs, done, goal))
+                traj.append((obs, action, next_obs, done, goal))
 
-            if done:
-                break
+                if done:
+                    break
         
         hindsight_goal = env.get_canvas()
 
