@@ -8,9 +8,9 @@ import cv2
 
 class DiffBezierSharpieEnv:
     def __init__(self, device):
-        self.action_dim = 5
+        self.action_dim = 6
         self.renderer = DiffPathRenderer()
-        self.MAX_STEPS = 100
+        self.MAX_STEPS = 10
         self.device = device
         self.reset()
 
@@ -68,7 +68,7 @@ class DiffBezierSharpieEnv:
         return prev_l2 - cur_l2
     
     def action2traj(self, action):
-        length, bend1, bend2, start, theta = action
+        length, bend1, bend2, start_x, start_y, theta = action
         theta = theta * 2*np.pi
 
         zero = torch.tensor(0.0).to(self.device)
@@ -85,7 +85,7 @@ class DiffBezierSharpieEnv:
             torch.stack([torch.sin(theta), torch.cos(theta)])
         ])
         points = points @ rot.T
-        points = points + start
+        points = points + torch.stack([start_x, start_y])
 
         traj = []
         POINTS_PER_TRAJECTORY = 16
