@@ -7,7 +7,7 @@ import random
 import cv2
 
 class DiffBezierSharpieEnv:
-    def __init__(self, data_dir):
+    def __init__(self):
         self.action_space = (5)
         self.renderer = DiffPathRenderer()
         self.MAX_STEPS = 100
@@ -17,30 +17,52 @@ class DiffBezierSharpieEnv:
         self.canvas = torch.zeros((CANVAS_SIZE, CANVAS_SIZE))
         self.cur_steps = 0
 
-    def observe(self):
-        canvas = 1.0 - self.canvas
-        canvas = torch.stack([canvas, canvas, canvas], dim=2)
-        return canvas
-
     def step(self, action):
         if self.cur_steps == self.MAX_STEPS:
             raise Exception("Tried to step terminated episode")
 
-        self.canvas = self.render_to(self.canvas, action)
-        self.cur_steps += 1
-
-        return self.observe(), self.cur_steps == self.MAX_STEPS
-    
-    def calc_reward(self, prev_canvas, cur_canvas, goal_canvas):
-        prev_l2 = torch.linalg.norm(prev_canvas - goal_canvas, dim=2)
-        cur_l2 = torch.linalg.norm(cur_canvas - goal_canvas, dim=2)
-        return prev_l2 - cur_l2
-    
-    def render_to(self, canvas, action):
         traj = self.action2traj(action)
         stroke = self.renderer(traj, thickness=1.5)
-        canvas = torch.max(canvas, stroke)
+        self.canvas = torch.max(self.canvas, stroke)
+        self.cur_steps += 1
+
+        return self.get_observation(), self.cur_steps == self.MAX_STEPS
+
+    def get_observation(self):
+        canvas = self.get_canvas()
+        steps_left = torch.ones((CANVAS_SIZE, CANVAS_SIZE)) * (self.MAX_STEPS - self.cur_steps)
+        observation = torch.stack([canvas, steps_left], dim=2)
+        return observation
+    
+    def get_canvas(self):
+        canvas = 1.0 - self.canvas
+        canvas = torch.stack([canvas, canvas, canvas], dim=2)
         return canvas
+    
+    def get_next_observation(self, observation, action):
+        '''
+        Gets the next observation if you were to take the action.
+        This function is differentiable wrt action.
+        '''
+        prev_canvas = observation[:,:,:2]
+        prev_steps_left = observation[:,:,2:]
+
+        traj = self.action2traj(action)
+        stroke = self.renderer(traj, thickness=1.5)
+        stroke = stroke.unsqueeze(2)
+
+        new_canvas = torch.min(prev_canvas, 1.0-stroke)
+        new_steps_left = prev_steps_left - 1
+        return torch.stack([new_canvas, new_steps_left], dim=2)
+    
+    def calc_reward(self, prev_obs, cur_obs, goal_canvas):
+        prev_canvas = prev_obs[:,:,:2]
+        cur_canvas = cur_obs[:,:,:2]
+
+        prev_l2 = torch.linalg.norm(prev_canvas - goal_canvas, dim=2)
+        cur_l2 = torch.linalg.norm(cur_canvas - goal_canvas, dim=2)
+        
+        return prev_l2 - cur_l2
     
     def action2traj(self, action):
         length, bend1, bend2, start, theta = action

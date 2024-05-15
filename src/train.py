@@ -32,32 +32,33 @@ def main(args):
 
         traj = []
         while True:
-            canvas = env.observe()
-            action = agent.select_action(canvas)
-            next_canvas, done = env.step(action)
-            reward = env.calc_reward(canvas, next_canvas, goal)
+            obs = env.get_observation()
+            action = agent.select_action(obs, goal)
+            next_obs, done = env.step(action)
 
-            traj.append((canvas, action, reward, next_canvas, done))
+            traj.append((obs, action, next_obs, done, goal))
 
             if done:
                 break
         
-        hindsight_goal = env.observe()
+        hindsight_goal = env.get_canvas()
 
-        for canvas, action, reward, next_canvas, done in traj:
+        for obs, action, next_obs, done, goal in traj:
             agent.add_to_replay_buffer(
-                torch.cat([canvas, goal], dim=2),
+                obs,
                 action,
-                reward,
-                torch.cat([next_canvas, goal], dim=2),
-                done
+                env.calc_reward(obs, next_obs, goal),
+                next_obs,
+                done,
+                goal
             )
             agent.add_to_replay_buffer(
-                torch.cat([canvas, hindsight_goal], dim=2),
+                obs,
                 action,
-                env.calc_reward(canvas, next_canvas, hindsight_goal),
-                torch.cat([next_canvas, hindsight_goal], dim=2),
-                done
+                env.calc_reward(obs, next_obs, hindsight_goal),
+                next_obs,
+                done,
+                hindsight_goal
             )
         
         agent.optimize()
