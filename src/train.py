@@ -66,7 +66,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--num_episodes', type=int, default=1000)
+    parser.add_argument('--num_episodes', type=int, default=5000)
     parser.add_argument('--num_warmup_episodes', type=int, default=10)
     parser.add_argument('--data_dir', type=str, default=r"C:\Users\Ldori\OneDrive\Desktop\RLFrida\data\ContourDrawingDataset")
 
