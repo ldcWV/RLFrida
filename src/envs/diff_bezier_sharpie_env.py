@@ -10,7 +10,7 @@ class DiffBezierSharpieEnv:
     def __init__(self, device):
         self.action_dim = 6
         self.renderer = DiffPathRenderer()
-        self.MAX_STEPS = 10
+        self.MAX_STEPS = 40
         self.device = device
         self.reset()
 
@@ -56,6 +56,7 @@ class DiffBezierSharpieEnv:
 
         new_canvas = torch.min(prev_canvas, 1.0-stroke)
         new_steps_left = prev_steps_left - 1/self.MAX_STEPS
+
         return torch.concat([new_canvas, new_steps_left], dim=2)
     
     def calc_reward(self, prev_obs, cur_obs, goal_canvas):
@@ -69,6 +70,9 @@ class DiffBezierSharpieEnv:
     
     def action2traj(self, action):
         length, bend1, bend2, start_x, start_y, theta = action
+        length = length * 0.5 + 0.05
+        start_x = start_x * 0.8 + 0.1
+        start_y = start_y * 0.8 + 0.1
         theta = theta * 2*np.pi
 
         zero = torch.tensor(0.0).to(self.device)

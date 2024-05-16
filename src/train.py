@@ -69,14 +69,14 @@ def main(args):
                 done,
                 goal
             )
-            agent.add_to_replay_buffer(
-                obs,
-                action,
-                env.calc_reward(obs, next_obs, hindsight_goal),
-                next_obs,
-                done,
-                hindsight_goal
-            )
+            # agent.add_to_replay_buffer(
+            #     obs,
+            #     action,
+            #     env.calc_reward(obs, next_obs, hindsight_goal),
+            #     next_obs,
+            #     done,
+            #     hindsight_goal
+            # )
         
         if episode_idx >= args.num_warmup_episodes:
             agent.optimize()
