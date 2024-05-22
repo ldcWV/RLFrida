@@ -12,7 +12,7 @@ class DDPG:
         self.discount = 0.9
         self.batch_size = 64
 
-        self.replay_buffer = ReplayBuffer(100)
+        self.replay_buffer = ReplayBuffer(1000)
 
         self.env = env
 
@@ -24,13 +24,13 @@ class DDPG:
                 self.coordconv[0, 0, i, j] = i / CANVAS_SIZE
                 self.coordconv[0, 1, i, j] = j / CANVAS_SIZE
 
-        self.actor_net = ResNet(9, 18, self.env.action_dim) # target, canvas, stepnum, coordconv 3 + 3 + 1 + 2
-        self.actor_target_net = ResNet(9, 18, self.env.action_dim)
+        self.actor_net = ResNet_wobn(9, 18, self.env.action_dim) # target, canvas, stepnum, coordconv 3 + 3 + 1 + 2
+        self.actor_target_net = ResNet_wobn(9, 18, self.env.action_dim)
         self.critic_net = ResNet_wobn(9, 18, 1)
         self.critic_target_net = ResNet_wobn(9, 18, 1)
 
-        self.actor_optim = optim.Adam(self.actor_net.parameters(), lr=1e-2)
-        self.critic_optim = optim.Adam(self.critic_net.parameters(), lr=1e-2)
+        self.actor_optim = optim.Adam(self.actor_net.parameters(), lr=1e-5)
+        self.critic_optim = optim.Adam(self.critic_net.parameters(), lr=1e-5)
 
         hard_update(self.actor_target_net, self.actor_net)
         hard_update(self.critic_target_net, self.critic_net)
@@ -175,15 +175,21 @@ class DDPG:
         # policy_loss = -pre_q.mean()
         action = self.select_action(obs, goal, target=False)
         next_obs = []
+        rew = []
         for i in range(obs.shape[0]):
             next_obs_ = self.env.get_next_observation(obs[i], action[i])
             next_obs.append(next_obs_)
+            rew_ = self.env.calc_reward(obs[i], next_obs_, goal[i])
+            rew.append(rew_)
         next_obs = torch.stack(next_obs)
+        rew = torch.stack(rew)
         
-        rew = torch.mean((next_obs[:,:,:3]))
+        # rew = -torch.mean((action[:, 3] - obs[:, 0, 0, 3])**2)
+        # rew = -torch.mean(next_obs[:,:,:,:3])
+        rew = torch.mean(rew)
         print(rew)
 
-        policy_loss = -rew.mean()
+        policy_loss = -rew
         self.actor_net.zero_grad()
         policy_loss.backward(retain_graph=True)
         self.actor_optim.step()

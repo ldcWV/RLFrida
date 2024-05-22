@@ -30,6 +30,8 @@ def main(args):
     agent = DDPG(env)
     agent.set_device(device)
 
+    wandb.watch(agent.actor_net, log_freq=10, log='all')
+
     for episode_idx in range(args.num_episodes):
         # goal = sample_image(args.data_dir).to(device)
         goal = torch.zeros((CANVAS_SIZE, CANVAS_SIZE, 3))

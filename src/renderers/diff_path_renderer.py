@@ -37,6 +37,6 @@ class DiffPathRenderer(nn.Module):
 
         radius = thickness/2
         darkness = torch.clamp((radius - distances) / radius, min=0.0, max=1.0)
-        darkness = darkness ** 0.2
+        # darkness = darkness ** 0.2
 
         return darkness

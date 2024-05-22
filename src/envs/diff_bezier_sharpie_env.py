@@ -12,6 +12,7 @@ class DiffBezierSharpieEnv:
         self.renderer = DiffPathRenderer()
         self.MAX_STEPS = 40
         self.device = device
+        self.thickness = 5
         self.reset()
 
     def reset(self):
@@ -24,7 +25,7 @@ class DiffBezierSharpieEnv:
             raise Exception("Tried to step terminated episode")
 
         traj = self.action2traj(action)
-        stroke = self.renderer(traj, thickness=1.5)
+        stroke = self.renderer(traj, thickness=self.thickness)
         self.canvas = torch.max(self.canvas, stroke)
         self.cur_steps += 1
 
@@ -51,7 +52,7 @@ class DiffBezierSharpieEnv:
         prev_steps_left = observation[:,:,3:]
 
         traj = self.action2traj(action)
-        stroke = self.renderer(traj, thickness=1.5)
+        stroke = self.renderer(traj, thickness=self.thickness)
         stroke = stroke.unsqueeze(2)
 
         new_canvas = torch.min(prev_canvas, 1.0-stroke)
