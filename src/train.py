@@ -26,41 +26,44 @@ def main(args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    env = DiffBezierSharpieEnv(device)
+    env = DiffBezierSharpieEnv(device, args.batch_size, args.stroke_bundle_size)
     agent = DDPG(env)
     agent.set_device(device)
 
-    wandb.watch(agent.actor_net, log_freq=10, log='all')
-
     for episode_idx in range(args.num_episodes):
         # goal = sample_image(args.data_dir).to(device)
-        goal = torch.zeros((CANVAS_SIZE, CANVAS_SIZE, 3))
+        goal = torch.ones((args.batch_size, CANVAS_SIZE, CANVAS_SIZE, 3))
         # goal[:CANVAS_SIZE//2, :, :] = 0
         goal = goal.to(device)
         env.reset()
 
-        tot_reward = 0
+        tot_reward = torch.zeros(args.batch_size).to(device)
         traj = []
         with torch.no_grad():
             while True:
-                obs = env.get_observation()
-                action = agent.select_action(obs, goal)
-                next_obs, done = env.step(action)
-                reward = env.calc_reward(obs, next_obs, goal)
+                obs = env.get_observation()                           # B x CANVAS_SIZE x CANVAS_SIZE x 4
+                action = agent.select_action(obs, goal)               # B x action_dim
+                next_obs, done = env.step(action)                     # B x CANVAS_SIZE x CANVAS_SIZE x 4; 1
+                done_tensor = torch.ones(args.batch_size)*float(done) # B
+                reward = env.calc_reward(obs, next_obs, goal)         # B
                 tot_reward += reward
 
-                traj.append((obs, action, reward, next_obs, done, goal))
+                traj.append((obs, action, reward, next_obs, done_tensor, goal))
 
                 if done:
                     break
         
-        hindsight_goal = env.get_canvas()
-        wandb.log({
+        hindsight_goal = env.get_canvas() # B x CANVAS_SIZE x CANVAS_SIZE x 3
+
+        wandb_dict = {
             "episode": episode_idx,
-            "total reward": tot_reward,
-            "goal": wandb.Image(goal.cpu().numpy()),
-            "hindsight goal": wandb.Image(hindsight_goal.cpu().numpy()),
-        })
+            "total reward": tot_reward.mean()
+        }
+        if episode_idx % 10 == 0:
+            for i in range(min(10, args.batch_size)):
+                wandb_dict[f"{i}/goal"] = wandb.Image(goal[i].cpu().numpy())
+                wandb_dict[f"{i}/hindsight goal"] = wandb.Image(hindsight_goal[i].cpu().numpy())
+        wandb.log(wandb_dict)
 
         for obs, action, reward, next_obs, done, goal in traj:
             agent.add_to_replay_buffer(
@@ -81,15 +84,19 @@ def main(args):
             # )
         
         if episode_idx >= args.num_warmup_episodes:
-            agent.optimize()
+            for i in range(args.train_iters_per_episode):
+                agent.optimize()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--num_episodes', type=int, default=5000)
     parser.add_argument('--num_warmup_episodes', type=int, default=10)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--stroke_bundle_size', type=int, default=5)
     parser.add_argument('--data_dir', type=str, default=r"C:\Users\Ldori\OneDrive\Desktop\RLFrida\data\ContourDrawingDataset")
     parser.add_argument('--wandb_mode', type=str, default="disabled")
+    parser.add_argument('--train_iters_per_episode', type=int, default=10)
 
     args = parser.parse_args()
     main(args)

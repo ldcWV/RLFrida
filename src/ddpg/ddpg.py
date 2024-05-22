@@ -10,7 +10,7 @@ class DDPG:
     def __init__(self, env):
         self.tau = 0.001
         self.discount = 0.9
-        self.batch_size = 64
+        self.batch_size = env.batch_size
 
         self.replay_buffer = ReplayBuffer(1000)
 
@@ -41,26 +41,21 @@ class DDPG:
         action = action.cpu().detach()
         reward = reward.cpu().detach()
         next_obs = next_obs.cpu().detach()
-        done = torch.tensor(done, dtype=torch.float)
+        done = done.cpu().detach()
         goal = goal.cpu().detach()
 
-        self.replay_buffer.add((obs, action, reward, next_obs, done, goal))
+        for i in range(len(obs)):
+            self.replay_buffer.add((obs[i], action[i], reward[i], next_obs[i], done[i], goal[i]))
 
     def select_action(self, obs, goal, target=False):
         '''
         Select an action from the policy network
-        obs: (batch_size, CANVAS_SIZE, CANVAS_SIZE, 4)
-        goal: (batch_size, CANVAS_SIZE, CANVAS_SIZE, 3)
+        obs: (B, CANVAS_SIZE, CANVAS_SIZE, 4)
+        goal: (B, CANVAS_SIZE, CANVAS_SIZE, 3)
         '''
-        not_batched = False
-        if obs.ndim == 3:
-            obs = obs.unsqueeze(0)
-            goal = goal.unsqueeze(0)
-            not_batched = True
-
         batch_size = obs.shape[0]
-        obs = obs.permute(0, 3, 1, 2) # (batch_size, 4, CANVAS_SIZE, CANVAS_SIZE)
-        goal = goal.permute(0, 3, 1, 2) # (batch_size, 3, CANVAS_SIZE, CANVAS_SIZE)
+        obs = obs.permute(0, 3, 1, 2)   # (B, 4, CANVAS_SIZE, CANVAS_SIZE)
+        goal = goal.permute(0, 3, 1, 2) # (B, 3, CANVAS_SIZE, CANVAS_SIZE)
         inp = torch.cat([obs, goal, self.coordconv.expand(batch_size, 2, CANVAS_SIZE, CANVAS_SIZE)], dim=1)
 
         if target:
@@ -68,8 +63,6 @@ class DDPG:
         else:
             action = self.actor_net(inp)
 
-        if not_batched:
-            action = action.squeeze(0)
         return action
     
     def evaluate_state(self, obs, goal, target=False):
@@ -90,18 +83,9 @@ class DDPG:
         return action
 
     def l2p_evaluate(self, obs, goal, action, target=False):
-        next_obs = []
-        rew = []
-        for i in range(obs.shape[0]):
-            next_obs_ = self.env.get_next_observation(obs[i], action[i])
-            rew_ = self.env.calc_reward(obs[i], next_obs_, goal[i])
-            next_obs.append(next_obs_)
-            rew.append(rew_)
-        next_obs = torch.stack(next_obs)
-        rew = torch.stack(rew)
-
+        next_obs = self.env.get_next_observation(obs, action)
+        rew = self.env.calc_reward(obs, next_obs, goal)
         Q = self.evaluate_state(next_obs, goal, target)
-
         return (Q + rew), rew
     
     def optimize(self):
@@ -174,18 +158,8 @@ class DDPG:
         # pre_q, _ = self.l2p_evaluate(obs.detach(), goal.detach(), action)
         # policy_loss = -pre_q.mean()
         action = self.select_action(obs, goal, target=False)
-        next_obs = []
-        rew = []
-        for i in range(obs.shape[0]):
-            next_obs_ = self.env.get_next_observation(obs[i], action[i])
-            next_obs.append(next_obs_)
-            rew_ = self.env.calc_reward(obs[i], next_obs_, goal[i])
-            rew.append(rew_)
-        next_obs = torch.stack(next_obs)
-        rew = torch.stack(rew)
-        
-        # rew = -torch.mean((action[:, 3] - obs[:, 0, 0, 3])**2)
-        # rew = -torch.mean(next_obs[:,:,:,:3])
+        next_obs = self.env.get_next_observation(obs, action)
+        rew = self.env.calc_reward(obs, next_obs, goal)
         rew = torch.mean(rew)
         print(rew)
 
