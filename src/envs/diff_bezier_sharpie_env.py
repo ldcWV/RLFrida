@@ -63,25 +63,23 @@ class DiffBezierSharpieEnv:
         Gets the next observation if you were to take the action.
         This function is differentiable wrt action.
         '''
-        canvas = observation[:,:,:,:3]     # B x CANVAS_SIZE x CANVAS_SIZE x 3
-        steps_left = observation[:,:,:,3:] # B x CANVAS_SIZE x CANVAS_SIZE x 1
+        canvas = 1.0 - observation[:,:,:,0]      # B x CANVAS_SIZE x CANVAS_SIZE
+        steps_left = observation[:,:,:,3]        # B x CANVAS_SIZE x CANVAS_SIZE
 
         action = action.view(self.batch_size*self.stroke_bundle_size, self.stroke_param_dim) # B*bundle x stroke_param_dim
         traj = self.action2traj(action) # B*bundle x POINTS_PER_TRAJECTORY x 2
         stroke = self.renderer(traj, thickness=self.thickness) # B*bundle x CANVAS_SIZE x CANVAS_SIZE
         stroke = stroke.view(self.batch_size, self.stroke_bundle_size, CANVAS_SIZE, CANVAS_SIZE) # B x bundle x CANVAS_SIZE x CANVAS_SIZE
-        stroke = torch.tile(stroke.unsqueeze(4), (1,1,1,1,3)) # B x bundle x CANVAS_SIZE x CANVAS_SIZE x 3
-        stroke = 1.0 - stroke
 
         # Alpha blending
         for i in range(self.stroke_bundle_size):
-            cur_stroke = stroke[:, i, :, :, :] # B x CANVAS_SIZE x CANVAS_SIZE x 3
-            alpha_a = 1.0 - cur_stroke[:,:,:,:1] # B x CANVAS_SIZE x CANVAS_SIZE x 1
+            cur_stroke = stroke[:, i, :, :]
+            alpha_a = cur_stroke
             canvas = cur_stroke + canvas*(1-alpha_a)
 
         steps_left = steps_left - 1/self.MAX_STEPS
 
-        return torch.concat([canvas, steps_left], dim=3)
+        return torch.stack([1.0-canvas, 1.0-canvas, 1.0-canvas, steps_left], dim=3)
     
     def calc_reward(self, prev_obs, cur_obs, goal_canvas):
         '''

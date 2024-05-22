@@ -99,4 +99,5 @@ if __name__ == "__main__":
     parser.add_argument('--train_iters_per_episode', type=int, default=10)
 
     args = parser.parse_args()
-    main(args)
+    with torch.autograd.detect_anomaly(True):
+        main(args)

@@ -24,13 +24,13 @@ class DDPG:
                 self.coordconv[0, 0, i, j] = i / CANVAS_SIZE
                 self.coordconv[0, 1, i, j] = j / CANVAS_SIZE
 
-        self.actor_net = ResNet_wobn(9, 18, self.env.action_dim) # target, canvas, stepnum, coordconv 3 + 3 + 1 + 2
-        self.actor_target_net = ResNet_wobn(9, 18, self.env.action_dim)
+        self.actor_net = ResNet(9, 18, self.env.action_dim) # target, canvas, stepnum, coordconv 3 + 3 + 1 + 2
+        self.actor_target_net = ResNet(9, 18, self.env.action_dim)
         self.critic_net = ResNet_wobn(9, 18, 1)
         self.critic_target_net = ResNet_wobn(9, 18, 1)
 
-        self.actor_optim = optim.Adam(self.actor_net.parameters(), lr=1e-5)
-        self.critic_optim = optim.Adam(self.critic_net.parameters(), lr=1e-5)
+        self.actor_optim = optim.Adam(self.actor_net.parameters(), lr=1e-3)
+        self.critic_optim = optim.Adam(self.critic_net.parameters(), lr=3e-4)
 
         hard_update(self.actor_target_net, self.actor_net)
         hard_update(self.critic_target_net, self.critic_net)
@@ -141,29 +141,29 @@ class DDPG:
         # self.actor_optim.step()
 
         # L2P critic update
-        # with torch.no_grad():
-        #     next_action = self.l2p_play(next_obs, goal, target=True)
-        #     target_q, _ = self.l2p_evaluate(next_obs, goal, next_action, target=True)
-        #     target_q = self.discount * (1-done.float()) * target_q
-        # cur_q, step_reward = self.l2p_evaluate(obs, goal, action)
-        # target_q += step_reward.detach()
+        with torch.no_grad():
+            next_action = self.l2p_play(next_obs, goal, target=True)
+            target_q, _ = self.l2p_evaluate(next_obs, goal, next_action, target=True)
+            target_q = self.discount * (1-done.float()) * target_q
+        cur_q, step_reward = self.l2p_evaluate(obs, goal, action)
+        target_q += step_reward.detach()
 
-        # value_loss = ((target_q - cur_q)**2).mean()
-        # self.critic_net.zero_grad()
-        # value_loss.backward(retain_graph=True)
-        # self.critic_optim.step()
+        value_loss = ((target_q - cur_q)**2).mean()
+        self.critic_net.zero_grad()
+        value_loss.backward(retain_graph=True)
+        self.critic_optim.step()
         
         # L2P actor update
-        # action = self.l2p_play(obs, goal)
-        # pre_q, _ = self.l2p_evaluate(obs.detach(), goal.detach(), action)
-        # policy_loss = -pre_q.mean()
-        action = self.select_action(obs, goal, target=False)
-        next_obs = self.env.get_next_observation(obs, action)
-        rew = self.env.calc_reward(obs, next_obs, goal)
-        rew = torch.mean(rew)
-        print(rew)
+        action = self.l2p_play(obs, goal)
+        pre_q, _ = self.l2p_evaluate(obs.detach(), goal.detach(), action)
+        policy_loss = -pre_q.mean()
+        # action = self.select_action(obs, goal, target=False)
+        # next_obs = self.env.get_next_observation(obs, action)
+        # rew = self.env.calc_reward(obs, next_obs, goal)
+        # rew = torch.mean(rew)
+        # print(rew)
 
-        policy_loss = -rew
+        # policy_loss = -rew
         self.actor_net.zero_grad()
         policy_loss.backward(retain_graph=True)
         self.actor_optim.step()
