@@ -9,6 +9,7 @@ import cv2
 import matplotlib.pyplot as plt
 import wandb
 import numpy as np
+from tqdm import tqdm
 
 def preload_images(data_dir):
     files = os.listdir(data_dir)
@@ -27,6 +28,13 @@ def sample_images(imgs, batch_size):
     idxs = np.random.choice(len(imgs), batch_size)
     return imgs[idxs]
 
+def random_strokes(env, batch_size, device):
+    env.reset()
+    for _ in range(5):
+        action = torch.rand((batch_size, env.action_dim)).to(device)
+        env.step(action)
+    return env.get_canvas()
+
 def main(args):
     wandb.init(project="RLFrida", config=args, mode=args.wandb_mode)
 
@@ -36,13 +44,16 @@ def main(args):
     agent = DDPG(env)
     agent.set_device(device)
 
-    imgs = preload_images(args.data_dir)
+    goal_env = DiffBezierSharpieEnv(device, args.batch_size, args.stroke_bundle_size)
 
-    for episode_idx in range(args.num_episodes):
-        goal = sample_images(imgs, args.batch_size).to(device)
+    # imgs = preload_images(args.data_dir)
+
+    for episode_idx in tqdm(range(args.num_episodes)):
+        # goal = sample_images(imgs, args.batch_size).to(device)
+        goal = random_strokes(goal_env, args.batch_size, device)
         # goal = torch.ones((args.batch_size, CANVAS_SIZE, CANVAS_SIZE, 3))
         # goal[:CANVAS_SIZE//2, :, :] = 0
-        goal = goal.to(device)
+        # goal = goal.to(device)
         env.reset()
 
         tot_reward = torch.zeros(args.batch_size).to(device)
