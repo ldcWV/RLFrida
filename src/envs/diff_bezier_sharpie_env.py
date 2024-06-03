@@ -1,4 +1,5 @@
 from renderers.diff_path_renderer import DiffPathRenderer
+from envs.clip_loss import clip_conv_loss
 from constants import CANVAS_SIZE
 import torch
 import numpy as np
@@ -88,15 +89,25 @@ class DiffBezierSharpieEnv:
         goal_canvas: B x CANVAS_SIZE x CANVAS_SIZE x 3
         '''
         def calc_score(canvas, goal_canvas):
-            canvas = torch.mean(canvas, dim=3) # B x CANVAS_SIZE x CANVAS_SIZE
-            goal_canvas = torch.mean(goal_canvas, dim=3) # B x CANVAS_SIZE x CANVAS_SIZE
+            # canvas = torch.mean(canvas, dim=3) # B x CANVAS_SIZE x CANVAS_SIZE
+            # goal_canvas = torch.mean(goal_canvas, dim=3) # B x CANVAS_SIZE x CANVAS_SIZE
 
-            black_mask = (goal_canvas <= 0.2).float() # B x CANVAS_SIZE x CANVAS_SIZE
-            white_mask = 1 - black_mask # B x CANVAS_SIZE x CANVAS_SIZE
-            l2 = ((canvas - goal_canvas) ** 2) # B x CANVAS_SIZE x CANVAS_SIZE
-            black_loss = (l2 * black_mask).mean(1).mean(1) # B
-            white_loss = (l2 * white_mask).mean(1).mean(1) # B
-            return 0.9 * black_loss + 0.1 * white_loss
+            # black_mask = (goal_canvas <= 0.2).float() # B x CANVAS_SIZE x CANVAS_SIZE
+            # white_mask = 1 - black_mask # B x CANVAS_SIZE x CANVAS_SIZE
+            # l2 = ((canvas - goal_canvas) ** 2) # B x CANVAS_SIZE x CANVAS_SIZE
+            # black_loss = (l2 * black_mask).mean(1).mean(1) # B
+            # white_loss = (l2 * white_mask).mean(1).mean(1) # B
+            # return 0.9 * black_loss + 0.1 * white_loss
+            B = canvas.shape[0]
+            res = []
+            for i in range(B):
+                this_canvas, this_goal = canvas[i:i+1], goal_canvas[i:i+1] # B x CANVAS_SIZE x CANVAS_SIZE x 3
+                this_canvas = torch.permute(this_canvas, (0, 3, 1, 2)) # B x 3 x CANVAS_SIZE x CANVAS_SIZE
+                this_goal = torch.permute(this_goal, (0, 3, 1, 2)) # B x 3 x CANVAS_SIZE x CANVAS_SIZE
+                loss = clip_conv_loss(this_canvas, this_goal)
+                res.append(loss)
+            res = torch.stack(res)
+            return res
 
         prev_canvas = prev_obs[:,:,:,:3]
         cur_canvas = cur_obs[:,:,:,:3]

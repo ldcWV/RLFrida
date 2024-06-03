@@ -46,14 +46,11 @@ def main(args):
 
     goal_env = DiffBezierSharpieEnv(device, args.batch_size, args.stroke_bundle_size)
 
-    # imgs = preload_images(args.data_dir)
+    imgs = preload_images(args.data_dir)
 
     for episode_idx in tqdm(range(args.num_episodes)):
-        # goal = sample_images(imgs, args.batch_size).to(device)
-        goal = random_strokes(goal_env, args.batch_size, device)
-        # goal = torch.ones((args.batch_size, CANVAS_SIZE, CANVAS_SIZE, 3))
-        # goal[:CANVAS_SIZE//2, :, :] = 0
-        # goal = goal.to(device)
+        goal = sample_images(imgs, args.batch_size).to(device)
+        # goal = random_strokes(goal_env, args.batch_size, device)
         env.reset()
 
         tot_reward = torch.zeros(args.batch_size).to(device)
@@ -111,9 +108,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--num_episodes', type=int, default=5000)
     parser.add_argument('--num_warmup_episodes', type=int, default=0)
-    parser.add_argument('--batch_size', type=int, default=96)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--stroke_bundle_size', type=int, default=5)
-    parser.add_argument('--data_dir', type=str, default=r"/home/frida/lawrence/RLFrida/data/ContourDrawingDataset")
+    parser.add_argument('--data_dir', type=str, default=r"/home/frida/lawrence/RLFrida/data/img_align_celeba")
     parser.add_argument('--wandb_mode', type=str, default="disabled")
     parser.add_argument('--train_iters_per_episode', type=int, default=10)
 
